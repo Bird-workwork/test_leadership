@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Invoker Trainer</title>
+<style>
+  :root {
+    --bg: #0d0e13;
+    --panel: #191b24;
+    --border: #2c2f3a;
+    --text: #eee;
+    --muted: #888;
+    --quas: #3E9BF0;
+    --wex: #2ECC71;
+    --exort: #E74C3C;
+    --accent: #C084FC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 0%, #1c1430, var(--bg));
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .app {
+    width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  h1 {
+    margin: 0;
+    text-align: center;
+    font-size: 24px;
+    letter-spacing: 0.04em;
+    background: linear-gradient(90deg, var(--quas), var(--wex), var(--exort));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .panel {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .stats {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .stat {
+    flex: 1;
+    text-align: center;
+  }
+  .stat .val {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .stat .lbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .target {
+    text-align: center;
+    padding: 28px 16px;
+  }
+  .target .lbl {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .target .name {
+    font-size: 32px;
+    font-weight: 700;
+  }
+  .target .hint {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--muted);
+    min-height: 20px;
+  }
+  .orbs {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+  .orb-slot {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    background: #0a0b10;
+    transition: transform 0.08s ease;
+  }
+  .orb-slot.filled.Q { background: var(--quas); border-color: var(--quas); color: #04263f; }
+  .orb-slot.filled.W { background: var(--wex); border-color: var(--wex); color: #06301a; }
+  .orb-slot.filled.E { background: var(--exort); border-color: var(--exort); color: #400a05; }
+  .orb-slot.pop { transform: scale(1.15); }
+  .feedback {
+    text-align: center;
+    min-height: 28px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .feedback.correct { color: var(--wex); }
+  .feedback.wrong { color: var(--exort); }
+  .modes {
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    flex: 1;
+    padding: 10px;
+    background: #262a38;
+    color: var(--text);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #241335;
+  }
+  button:hover:not(.active) { border-color: var(--accent); }
+  .keys {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .keys b { color: var(--text); }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 11, 16, 0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+  .overlay.show { display: flex; }
+  .overlay h2 { margin: 0; font-size: 28px; }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .deadline-bar {
+    margin-top: 16px;
+    height: 6px;
+    border-radius: 3px;
+    background: #0a0b10;
+    overflow: hidden;
+    display: none;
+  }
+  .deadline-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--wex), var(--exort));
+  }
+  @keyframes recordPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+  .stat.record .val {
+    animation: recordPulse 0.5s ease;
+    color: var(--wex) !important;
+  }
+  .diff-row button {
+    font-size: 12px;
+    padding: 8px;
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <h1>INVOKER COMBO TRAINER</h1>
+
+    <div class="panel stats">
+      <div class="stat"><div class="val" id="score">0</div><div class="lbl">Score</div></div>
+      <div class="stat"><div class="val" id="highScore">0</div><div class="lbl">High Score</div></div>
+      <div class="stat"><div class="val" id="streak">0</div><div class="lbl">Streak</div></div>
+    </div>
+    <div class="panel stats">
+      <div class="stat"><div class="val" id="best">0</div><div class="lbl">Best Streak</div></div>
+      <div class="stat"><div class="val" id="avgTime">–</div><div class="lbl">Avg Time</div></div>
+      <div class="stat"><div class="val" id="timer">∞</div><div class="lbl" id="timerLbl">Time Left</div></div>
+    </div>
+
+    <div class="panel target">
+      <div class="lbl">Invoke</div>
+      <div class="name" id="targetName">—</div>
+      <div class="hint" id="hint"></div>
+      <div class="deadline-bar" id="deadlineBar"><div class="deadline-fill" id="deadlineFill"></div></div>
+    </div>
+
+    <div class="panel" style="display:flex; flex-direction:column; gap:14px;">
+      <div class="orbs" id="orbs">
+        <div class="orb-slot" data-i="0"></div>
+        <div class="orb-slot" data-i="1"></div>
+        <div class="orb-slot" data-i="2"></div>
+      </div>
+      <div class="feedback" id="feedback"></div>
+    </div>
+
+    <div class="panel" style="display:flex; flex-direction:column; gap:10px;">
+      <div class="modes">
+        <button id="practiceBtn" class="active">Practice</button>
+        <button id="timeAttackBtn">Time Attack</button>
+        <button id="survivalBtn">Survival</button>
+      </div>
+      <div class="modes diff-row" id="difficultyRow" style="display:none;">
+        <button class="diff-btn active" data-dur="60">60s</button>
+        <button class="diff-btn" data-dur="30">30s</button>
+        <button class="diff-btn" data-dur="15">15s Insane</button>
+      </div>
+      <div class="toggle-row">
+        <span>Show combo hint</span>
+        <button id="hintToggle" style="flex:none; padding:4px 12px;">Off</button>
+      </div>
+      <div class="toggle-row">
+        <span>Auto-invoke on 3rd orb</span>
+        <button id="autoToggle" style="flex:none; padding:4px 12px;">Off</button>
+      </div>
+    </div>
+
+    <div class="keys">
+      <span><b>Q W E</b> Queue orb</span>
+      <span><b>R</b> Invoke</span>
+      <span><b>Backspace</b> Clear</span>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <h2 id="overlayTitle">Time's Up!</h2>
+    <div id="overlayBody" style="color: var(--muted);"></div>
+    <button id="restartBtn" style="flex:none; padding:10px 24px;">Play Again</button>
+  </div>
+
+<script>
+(() => {
+  const SPELLS = [
+    { combo: ['Q','Q','Q'], name: 'Cold Snap' },
+    { combo: ['Q','Q','W'], name: 'Ghost Walk' },
+    { combo: ['Q','Q','E'], name: 'Ice Wall' },
+    { combo: ['W','W','W'], name: 'EMP' },
+    { combo: ['Q','W','W'], name: 'Tornado' },
+    { combo: ['W','W','E'], name: 'Alacrity' },
+    { combo: ['E','E','E'], name: 'Sun Strike' },
+    { combo: ['Q','E','E'], name: 'Forge Spirit' },
+    { combo: ['W','E','E'], name: 'Chaos Meteor' },
+    { combo: ['Q','W','E'], name: 'Deafening Blast' },
+  ];
+
+  const orbSlots = [...document.querySelectorAll('.orb-slot')];
+  const targetNameEl = document.getElementById('targetName');
+  const hintEl = document.getElementById('hint');
+  const feedbackEl = document.getElementById('feedback');
+  const scoreEl = document.getElementById('score');
+  const highScoreEl = document.getElementById('highScore');
+  const streakEl = document.getElementById('streak');
+  const bestEl = document.getElementById('best');
+  const avgTimeEl = document.getElementById('avgTime');
+  const timerEl = document.getElementById('timer');
+  const timerLbl = document.getElementById('timerLbl');
+  const deadlineBar = document.getElementById('deadlineBar');
+  const deadlineFill = document.getElementById('deadlineFill');
+  const practiceBtn = document.getElementById('practiceBtn');
+  const timeAttackBtn = document.getElementById('timeAttackBtn');
+  const survivalBtn = document.getElementById('survivalBtn');
+  const difficultyRow = document.getElementById('difficultyRow');
+  const diffButtons = [...document.querySelectorAll('.diff-btn')];
+  const hintToggle = document.getElementById('hintToggle');
+  const autoToggle = document.getElementById('autoToggle');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlayBody = document.getElementById('overlayBody');
+  const restartBtn = document.getElementById('restartBtn');
+
+  const HIGH_SCORE_STORAGE_KEY = 'invokerTrainerHighScores';
+  function loadHighScores() {
+    try { return JSON.parse(localStorage.getItem(HIGH_SCORE_STORAGE_KEY)) || {}; }
+    catch { return {}; }
+  }
+  function saveHighScores(scores) {
+    localStorage.setItem(HIGH_SCORE_STORAGE_KEY, JSON.stringify(scores));
+  }
+  let highScores = loadHighScores();
+
+  let queue = [];
+  let target = null;
+  let score = 0, streak = 0, best = 0;
+  let reactionTimes = [];
+  let targetShownAt = 0;
+  let mode = 'practice';
+  let timeAttackDuration = 60;
+  let timeLeft = 60;
+  let timerInterval = null;
+  let lives = 3;
+  let survivalRafId = null;
+  let roundDeadlineAt = 0;
+  let showHint = false;
+  let autoInvoke = false;
+  let gameActive = true;
+  let highScoreAtRunStart = 0;
+
+  function sorted(arr) { return [...arr].sort().join(''); }
+
+  function modeKey() {
+    return mode === 'timeAttack' ? 'timeAttack_' + timeAttackDuration : mode;
+  }
+
+  function currentMetric() {
+    return mode === 'practice' ? best : score;
+  }
+
+  function refreshHighScoreDisplay() {
+    highScoreEl.textContent = highScores[modeKey()] || 0;
+  }
+
+  function maybeRecordHighScore() {
+    const key = modeKey();
+    const val = currentMetric();
+    const prev = highScores[key] || 0;
+    if (val > prev) {
+      highScores[key] = val;
+      saveHighScores(highScores);
+      highScoreEl.textContent = val;
+      highScoreEl.parentElement.classList.add('record');
+      setTimeout(() => highScoreEl.parentElement.classList.remove('record'), 700);
+    }
+  }
+
+  function renderLives() {
+    timerEl.textContent = '♥'.repeat(Math.max(lives, 0)) + '♡'.repeat(Math.max(3 - lives, 0));
+  }
+
+  function pickTarget() {
+    let next;
+    do {
+      next = SPELLS[Math.floor(Math.random() * SPELLS.length)];
+    } while (target && next.name === target.name);
+    target = next;
+    targetShownAt = performance.now();
+    targetNameEl.textContent = target.name;
+    hintEl.textContent = showHint ? target.combo.join(' ') : '';
+    if (mode === 'survival') startSurvivalRound();
+  }
+
+  function startSurvivalRound() {
+    clearInterval(survivalRafId);
+    const duration = Math.max(1200, 4000 - streak * 150);
+    roundDeadlineAt = performance.now() + duration;
+    deadlineFill.style.transition = 'none';
+    deadlineFill.style.width = '100%';
+    requestAnimationFrame(() => {
+      deadlineFill.style.transition = `width ${duration}ms linear`;
+      deadlineFill.style.width = '0%';
+    });
+    survivalRafId = setInterval(() => {
+      if (!gameActive || mode !== 'survival') { clearInterval(survivalRafId); return; }
+      if (performance.now() >= roundDeadlineAt) {
+        clearInterval(survivalRafId);
+        handleSurvivalTimeout();
+      }
+    }, 100);
+  }
+
+  function handleSurvivalTimeout() {
+    streak = 0;
+    flashFeedback('Too slow! ' + target.name + ' was ' + target.combo.join(' '), 'wrong');
+    loseLife();
+    updateStats();
+    clearQueue();
+    if (gameActive) pickTarget();
+  }
+
+  function loseLife() {
+    lives -= 1;
+    renderLives();
+    if (lives <= 0) endSurvival();
+  }
+
+  function renderQueue() {
+    orbSlots.forEach((slot, i) => {
+      const letter = queue[i];
+      slot.className = 'orb-slot';
+      slot.textContent = letter || '';
+      if (letter) slot.classList.add('filled', letter);
+    });
+  }
+
+  function popAnim(i) {
+    const slot = orbSlots[i];
+    slot.classList.add('pop');
+    setTimeout(() => slot.classList.remove('pop'), 90);
+  }
+
+  function updateStats() {
+    scoreEl.textContent = score;
+    streakEl.textContent = streak;
+    bestEl.textContent = best;
+    avgTimeEl.textContent = reactionTimes.length
+      ? (reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length / 1000).toFixed(2) + 's'
+      : '–';
+    maybeRecordHighScore();
+  }
+
+  function addOrb(letter) {
+    if (!gameActive) return;
+    queue.push(letter);
+    if (queue.length > 3) queue.shift();
+    renderQueue();
+    popAnim(queue.length - 1);
+    if (autoInvoke && queue.length === 3) invoke();
+  }
+
+  function clearQueue() {
+    queue = [];
+    renderQueue();
+  }
+
+  function invoke() {
+    if (!gameActive) return;
+    if (queue.length !== 3) {
+      flashFeedback('Need 3 orbs queued', 'wrong');
+      return;
+    }
+    if (mode === 'survival') clearInterval(survivalRafId);
+    const isCorrect = sorted(queue) === sorted(target.combo);
+    const elapsed = performance.now() - targetShownAt;
+    if (isCorrect) {
+      score += 100;
+      streak += 1;
+      best = Math.max(best, streak);
+      reactionTimes.push(elapsed);
+      flashFeedback('Correct! ' + target.name + ' (' + (elapsed / 1000).toFixed(2) + 's)', 'correct');
+    } else {
+      streak = 0;
+      flashFeedback('Wrong — ' + target.name + ' was ' + target.combo.join(' '), 'wrong');
+      if (mode === 'survival') loseLife();
+    }
+    updateStats();
+    clearQueue();
+    if (gameActive) pickTarget();
+  }
+
+  function flashFeedback(msg, cls) {
+    feedbackEl.textContent = msg;
+    feedbackEl.className = 'feedback ' + cls;
+  }
+
+  function setMode(newMode) {
+    mode = newMode;
+    practiceBtn.classList.toggle('active', mode === 'practice');
+    timeAttackBtn.classList.toggle('active', mode === 'timeAttack');
+    survivalBtn.classList.toggle('active', mode === 'survival');
+    difficultyRow.style.display = mode === 'timeAttack' ? 'flex' : 'none';
+    restart();
+  }
+
+  function restart() {
+    clearInterval(timerInterval);
+    clearInterval(survivalRafId);
+    overlay.classList.remove('show');
+    score = 0; streak = 0; best = 0; reactionTimes = [];
+    lives = 3;
+    gameActive = true;
+    clearQueue();
+    feedbackEl.textContent = '';
+    feedbackEl.className = 'feedback';
+    deadlineBar.style.display = mode === 'survival' ? 'block' : 'none';
+    highScoreAtRunStart = highScores[modeKey()] || 0;
+    refreshHighScoreDisplay();
+    updateStats();
+    if (mode === 'timeAttack') {
+      timerLbl.textContent = 'Time Left';
+      timeLeft = timeAttackDuration;
+      timerEl.textContent = timeLeft;
+      timerInterval = setInterval(() => {
+        timeLeft -= 1;
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 0) endTimeAttack();
+      }, 1000);
+    } else if (mode === 'survival') {
+      timerLbl.textContent = 'Lives';
+      renderLives();
+    } else {
+      timerLbl.textContent = 'Time Left';
+      timerEl.textContent = '∞';
+    }
+    pickTarget();
+  }
+
+  function endTimeAttack() {
+    clearInterval(timerInterval);
+    gameActive = false;
+    const isRecord = score > highScoreAtRunStart;
+    overlayTitle.textContent = "Time's Up!";
+    overlayBody.textContent = `Score: ${score} · Best streak: ${best} · Avg time: ${avgTimeEl.textContent}`
+      + (isRecord ? ' · 🏆 New High Score!' : '');
+    overlay.classList.add('show');
+  }
+
+  function endSurvival() {
+    clearInterval(survivalRafId);
+    gameActive = false;
+    const isRecord = score > highScoreAtRunStart;
+    overlayTitle.textContent = 'Out of Lives!';
+    overlayBody.textContent = `Score: ${score} · Best streak: ${best} · Avg time: ${avgTimeEl.textContent}`
+      + (isRecord ? ' · 🏆 New High Score!' : '');
+    overlay.classList.add('show');
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (overlay.classList.contains('show')) return;
+    const key = e.key.toLowerCase();
+    if (key === 'q') addOrb('Q');
+    else if (key === 'w') addOrb('W');
+    else if (key === 'e') addOrb('E');
+    else if (key === 'r' || key === 'enter') invoke();
+    else if (key === 'backspace') { e.preventDefault(); clearQueue(); }
+  });
+
+  practiceBtn.addEventListener('click', () => setMode('practice'));
+  timeAttackBtn.addEventListener('click', () => setMode('timeAttack'));
+  survivalBtn.addEventListener('click', () => setMode('survival'));
+  restartBtn.addEventListener('click', restart);
+
+  diffButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      timeAttackDuration = parseInt(btn.dataset.dur, 10);
+      diffButtons.forEach((b) => b.classList.toggle('active', b === btn));
+      if (mode === 'timeAttack') restart();
+    });
+  });
+
+  hintToggle.addEventListener('click', () => {
+    showHint = !showHint;
+    hintToggle.textContent = showHint ? 'On' : 'Off';
+    hintEl.textContent = showHint ? target.combo.join(' ') : '';
+  });
+
+  autoToggle.addEventListener('click', () => {
+    autoInvoke = !autoInvoke;
+    autoToggle.textContent = autoInvoke ? 'On' : 'Off';
+  });
+
+  restart();
+})();
+</script>
+</body>
+</html>
